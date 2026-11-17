@@ -1,0 +1,164 @@
+# Darts on TV card – needs button-card (Marketplace/HACS: "button-card" by RomRider).
+# Add a Manual card to your dashboard and paste this in.
+type: custom:button-card
+entity: sensor.darts_on_tv
+show_name: false
+show_icon: false
+show_state: false
+show_label: false
+tap_action:
+  action: none
+hold_action:
+  action: none
+styles:
+  card:
+    - "padding: 16px 18px"
+    - "border-radius: 16px"
+    - "cursor: default"
+    - "justify-content: flex-start"
+    - "align-items: stretch"
+  grid:
+    - "grid-template-areas: \"body\""
+    - "grid-template-columns: minmax(0, 1fr)"
+    - "grid-template-rows: auto"
+    - "width: 100%"
+    - "text-align: left"
+  custom_fields:
+    body:
+      - "text-align: left"
+      - "width: 100%"
+      - "justify-self: stretch"
+      - "align-self: start"
+      - "white-space: normal"
+      - "overflow: visible"
+      - "display: block"
+extra_styles: "#container { padding: 16px 16px 12px !important; box-sizing: border-box !important; display: grid !important; grid-template-areas: \"body\" !important; grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto !important; width: 100% !important; text-align: left !important; } #body { grid-area: body !important; justify-self: stretch !important; width: 100% !important; min-width: 0 !important; text-align: left !important; white-space: normal !important; overflow: visible !important; }"
+grid_options:
+  columns: full
+  rows: auto
+custom_fields:
+  body: |
+    [[[
+    const a = entity ? entity.attributes : {};
+    const all = Array.isArray(a.sessions) ? a.sessions : [];
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const RED = '#e5484d', GREEN = '#30a46c';
+    const now = new Date();
+    const dayKey = (d) => d.toLocaleDateString('en-CA', {timeZone: 'Europe/London'});
+    const todayK = dayKey(now), tomK = dayKey(new Date(now.getTime() + 864e5));
+    const fmtTime = (d) => d.toLocaleTimeString('en-GB', {hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Europe/London'}).replace(' ', '').toLowerCase();
+    const chColour = (c) => /sky/i.test(c) ? '#1d4ed8' : /itv/i.test(c) ? '#0d9488' : /bbc/i.test(c) ? '#374151' : /premier/i.test(c) ? '#7c3aed' : /dazn/i.test(c) ? '#a16207' : '#6b7280';
+    const pill = (c) => `<span class="pill" style="background:${chColour(c)}">${esc(c)}</span>`;
+    const chans = (s) => {
+      const list = (s.channels || []).filter(c => !/ultra hdr/i.test(c));
+      return list.length ? list.slice(0, 2).map(pill).join('') : '<span class="pill tbc">Channel TBC</span>';
+    };
+    const matchGrid = (ms) => !ms || !ms.length ? '' : `<div class="m">${ms.map(m => {
+      const p = String(m).split(' v ');
+      return `<div class="pa">${esc(p[0])}</div><div class="vs">v</div><div class="pb">${esc(p.slice(1).join(' v '))}</div>`;
+    }).join('')}</div>`;
+
+    // sessions still to come (keep one that started in the last 3 h as "on now")
+    const sess = all.map(s => Object.assign({}, s, {d: new Date(s.start)}))
+      .filter(s => now - s.d < 3 * 36e5).sort((x, y) => x.d - y.d);
+
+    // Dartboard badge: 20 alternating segments, red/green doubles & trebles, bull
+    const board = (() => {
+      const C = 22, pt = (r, a) => `${(C + r * Math.cos(a)).toFixed(2)},${(C + r * Math.sin(a)).toFixed(2)}`;
+      const seg = (r1, r2, a1, a2, fill) => `<path fill="${fill}" d="M${pt(r1, a1)} L${pt(r2, a1)} A${r2},${r2} 0 0 1 ${pt(r2, a2)} L${pt(r1, a2)} A${r1},${r1} 0 0 0 ${pt(r1, a1)} Z"/>`;
+      const BLK = '#1a1a1a', CRM = '#f1e6c8', R = '#d62f2f', G = '#1f8a4c';
+      let out = `<circle cx="${C}" cy="${C}" r="22" fill="#0b0b0b"/>`;
+      for (let i = 0; i < 20; i++) {
+        const a1 = (-99 + i * 18) * Math.PI / 180, a2 = a1 + 18 * Math.PI / 180, even = i % 2 === 0;
+        out += seg(2.6, 11, a1, a2, even ? BLK : CRM) + seg(11, 12.2, a1, a2, even ? R : G)
+             + seg(12.2, 17.6, a1, a2, even ? BLK : CRM) + seg(17.6, 18.8, a1, a2, even ? R : G);
+      }
+      out += `<circle cx="${C}" cy="${C}" r="18.8" fill="none" stroke="#9aa0a6" stroke-width=".35"/>`
+           + `<circle cx="${C}" cy="${C}" r="2.6" fill="${G}"/><circle cx="${C}" cy="${C}" r="1.2" fill="${R}"/>`;
+      return `<svg class="logo" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+    })();
+
+    const css = `<style>
+      .wrap, .wrap *{white-space:normal !important;box-sizing:border-box}
+      .wrap ha-icon{margin:0 !important;display:inline-flex}
+      .hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+      .logo{width:44px;height:44px;flex:none;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+      .t{font-size:22px;font-weight:700;line-height:1.1}
+      .s{color:var(--secondary-text-color);font-size:13px;margin-top:2px}
+      .hero{border-radius:16px;padding:16px;margin-bottom:16px;color:#fff;
+            background:linear-gradient(135deg,#7f1d1d 0%,#111827 55%,#064e3b 100%);box-shadow:0 4px 14px rgba(0,0,0,.25)}
+      .hero .k{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+      .hero .ev{font-size:21px;font-weight:800;margin-top:4px;line-height:1.15}
+      .hero .rd{font-size:14px;opacity:.85;margin-top:2px}
+      .hero .when{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
+      .hero .big{font-size:26px;font-weight:800;margin-right:4px}
+      .live{background:${RED};color:#fff;font-size:11px;font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:6px}
+      .hero .m{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)}
+      .hero .vs{color:rgba(255,255,255,.6)}
+      .pill{display:inline-block;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;margin:2px 6px 2px 0;line-height:1.4}
+      .pill.tbc{background:transparent;color:var(--secondary-text-color);border:1px dashed var(--divider-color)}
+      .day{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--divider-color)}
+      .date{flex:none;width:52px;border-radius:12px;text-align:center;padding:6px 0;background:var(--secondary-background-color)}
+      .date .dw{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--secondary-text-color)}
+      .date .dn{font-size:22px;font-weight:800;line-height:1.1}
+      .date .mo{font-size:11px;color:var(--secondary-text-color)}
+      .date.today{background:${RED};color:#fff}
+      .date.today .dw,.date.today .mo{color:rgba(255,255,255,.85)}
+      .date.tom{outline:2px solid ${GREEN};outline-offset:-2px}
+      .body{flex:1;min-width:0}
+      .evn{font-weight:700;font-size:15px}
+      .row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px}
+      .tm{font-weight:800;font-size:14px;min-width:56px}
+      .rn{color:var(--secondary-text-color);font-size:13px;flex:1 1 140px}
+      .m{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:4px 8px;margin-top:10px;
+         padding:8px 10px;border:1px solid var(--divider-color);border-radius:10px;font-size:13px}
+      .pa{text-align:right !important}.pb{text-align:left !important}
+      .vs{color:var(--secondary-text-color);font-weight:700;font-size:11px;align-self:center}
+      .ft{color:var(--secondary-text-color);font-size:11px;margin-top:10px;text-align:center !important}
+    </style>`;
+
+    const nextS = sess[0];
+    let hdrSub = 'No darts on TV in the next month';
+    let hero = '';
+    if (nextS) {
+      const k = dayKey(nextS.d);
+      const onNow = nextS.d <= now;
+      const label = onNow ? 'On now' : k === todayK ? (nextS.d.getHours() >= 17 ? 'Tonight' : 'Today')
+                  : k === tomK ? 'Tomorrow' : nextS.d.toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Europe/London'});
+      hdrSub = `Next: ${label} ${onNow ? '' : fmtTime(nextS.d)}`;
+      hero = `<div class="hero">
+        <div class="k">Next up</div>
+        <div class="ev">${esc(nextS.event)}</div>
+        <div class="rd">${esc(nextS.round)}</div>
+        <div class="when">${onNow ? '<span class="live">● LIVE</span>' : ''}<span class="big">${esc(label)}${onNow ? '' : ' · ' + fmtTime(nextS.d)}</span>${chans(nextS)}</div>
+        ${matchGrid(nextS.matches)}
+      </div>`;
+    }
+
+    // group the rest by day (skip the hero session itself)
+    const rest = sess.slice(1, 14);
+    const days = [];
+    rest.forEach(s => {
+      const k = dayKey(s.d);
+      let g = days.find(x => x.k === k);
+      if (!g) { g = {k, d: s.d, items: []}; days.push(g); }
+      g.items.push(s);
+    });
+    const dayHtml = days.map(g => {
+      const cls = g.k === todayK ? 'today' : g.k === tomK ? 'tom' : '';
+      const dw = g.k === todayK ? 'Today' : g.k === tomK ? 'Tmrw' : g.d.toLocaleDateString('en-GB', {weekday: 'short', timeZone: 'Europe/London'});
+      const events = [...new Set(g.items.map(s => s.event))].map(esc).join(' · ');
+      const rows = g.items.map(s => `<div class="row"><span class="tm">${fmtTime(s.d)}</span><span class="rn">${esc(s.round)}</span><span>${chans(s)}</span></div>${matchGrid(s.matches)}`).join('');
+      return `<div class="day">
+        <div class="date ${cls}"><div class="dw">${dw}</div><div class="dn">${g.d.toLocaleDateString('en-GB', {day: 'numeric', timeZone: 'Europe/London'})}</div><div class="mo">${g.d.toLocaleDateString('en-GB', {month: 'short', timeZone: 'Europe/London'})}</div></div>
+        <div class="body"><div class="evn">${events}</div>${rows}</div>
+      </div>`;
+    }).join('');
+
+    const upd = a.updated ? new Date(a.updated).toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'}) : '–';
+    return `<div class="wrap" style="display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0;text-align:left">${css}
+      <div class="hdr">${board}<div><div class="t">Darts on TV</div><div class="s">${esc(hdrSub)}</div></div></div>
+      ${hero}${dayHtml}
+      <div class="ft">Times & channels: wheresthematch.com · Line-ups: dartsnews.com · Updated ${esc(upd)}</div>
+    </div>`;
+    ]]]

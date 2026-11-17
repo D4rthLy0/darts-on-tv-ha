@@ -1,0 +1,54 @@
+# Darts on TV – Home Assistant package
+# Put darts_tv.py in your config folder and this file in config/packages/
+# (enable packages in configuration.yaml:  homeassistant: packages: !include_dir_named packages)
+# Change notify.YOUR_PHONE below to your own notify entity.
+
+command_line:
+  - sensor:
+      name: "Darts on TV"
+      unique_id: darts_on_tv
+      command: "python3 /config/darts_tv.py"
+      command_timeout: 90
+      value_template: "{{ value_json.next }}"
+      device_class: timestamp
+      json_attributes:
+        - sessions
+        - updated
+        - error
+      scan_interval: 10800  # every 3 hours – please keep it polite
+      icon: mdi:bullseye-arrow
+
+recorder:
+  exclude:
+    entities:
+      - sensor.darts_on_tv  # large attribute list, no need to keep history
+
+automation:
+  - id: darts_on_tv_today
+    alias: Darts – On TV Today
+    description: At 10:00 on any day with darts on UK TV, sends what's on, when, which channel and who's playing.
+    triggers:
+      - trigger: time
+        at: "10:00:00"
+    actions:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.darts_on_tv
+      - delay: "00:01:00"
+      - variables:
+          today_sessions: >-
+            {% set d = now().date() | string %}
+            {{ (state_attr('sensor.darts_on_tv', 'sessions') or []) | selectattr('start', 'match', d) | list }}
+      - condition: template
+        value_template: "{{ today_sessions | count > 0 }}"
+      - action: notify.send_message
+        target:
+          entity_id: notify.YOUR_PHONE
+        data:
+          title: "🎯 Darts on TV today – {{ today_sessions[0].event }}"
+          message: |-
+            {% for s in today_sessions %}{% set t = as_datetime(s.start) | as_local %}{% set others = s.channels[1:] | reject('search', 'Ultra HDR') | list %}{{ t.strftime('%-I:%M%p') | lower }} – {{ s.round }} on {{ s.channels[0] if s.channels else 'channel TBC' }}{% if others %} (also {{ others | join(', ') }}){% endif %}
+            {% if s.matches %}{{ s.matches | join('\n') }}
+            {% endif %}{% if not loop.last %}
+            {% endif %}{% endfor %}
+    mode: single
