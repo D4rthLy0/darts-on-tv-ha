@@ -15,6 +15,11 @@ Never miss the darts again. This adds a **UK darts TV schedule** to Home Assista
 
 UK only: the times and channels are UK TV listings, in UK time.
 
+<p align="center">
+  <img src="images/s25-ultra.jpg" alt="The Darts on TV card on a Samsung Galaxy S25 Ultra (Home Assistant app, dark theme)" width="360">
+  <br><sub>The card in the Home Assistant app on a Samsung Galaxy S25 Ultra (dark theme)</sub>
+</p>
+
 ## Where the data comes from
 
 No API key or account needed. Every 3 hours, `darts_tv.py` reads:
